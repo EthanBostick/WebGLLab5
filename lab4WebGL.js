@@ -11,6 +11,11 @@ let theta = 0;
 let modelViewLoc;
 let projectionLoc;
 let lightDirectionLoc;
+let lightColorLoc;
+let ambientLightLoc;
+
+// Screenshot state tracker
+let currentMode = '5'; // 1=Red, 2=Green, 3=Blue, 4=Animated, 5=Disco
 
 // Cube vertices
 const vertices = [
@@ -73,153 +78,97 @@ window.onload = async function()
         return;
     }
 
+    // Keyboard listener for screenshots
+    window.addEventListener("keydown", (e) => {
+        if(['1','2','3','4','5'].includes(e.key)) {
+            currentMode = e.key;
+        }
+    });
+
     gl.viewport(0, 0, canvas.width, canvas.height);
-
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-
     gl.enable(gl.DEPTH_TEST);
 
     colorCube();
 
-    // Load shader files
-    const vertexSource =
-        await fetch("vertexShader.glsl")
-        .then(response => response.text());
+    const vertexSource = await fetch("vertexShader.glsl").then(r => r.text());
+    const fragmentSource = await fetch("fragmentShader.glsl").then(r => r.text());
 
-    const fragmentSource =
-        await fetch("fragmentShader.glsl")
-        .then(response => response.text());
-
-    program = createProgram(
-        gl,
-        vertexSource,
-        fragmentSource
-    );
-
+    program = createProgram(gl, vertexSource, fragmentSource);
     gl.useProgram(program);
 
     // Position Buffer
     const vBuffer = gl.createBuffer();
-
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
 
-    gl.bufferData(
-        gl.ARRAY_BUFFER,
-        flatten(pointsArray),
-        gl.STATIC_DRAW
-    );
-
-    const positionLoc =
-        gl.getAttribLocation(
-            program,
-            "aPosition"
-        );
-
-    gl.vertexAttribPointer(
-        positionLoc,
-        4,
-        gl.FLOAT,
-        false,
-        0,
-        0
-    );
-
+    const positionLoc = gl.getAttribLocation(program, "aPosition");
+    gl.vertexAttribPointer(positionLoc, 4, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(positionLoc);
 
     // Normal Buffer
     const nBuffer = gl.createBuffer();
-
     gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(normalsArray), gl.STATIC_DRAW);
 
-    gl.bufferData(
-        gl.ARRAY_BUFFER,
-        flatten(normalsArray),
-        gl.STATIC_DRAW
-    );
-
-    const normalLoc =
-        gl.getAttribLocation(
-            program,
-            "aNormal"
-        );
-
-    gl.vertexAttribPointer(
-        normalLoc,
-        3,
-        gl.FLOAT,
-        false,
-        0,
-        0
-    );
-
+    const normalLoc = gl.getAttribLocation(program, "aNormal");
+    gl.vertexAttribPointer(normalLoc, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(normalLoc);
 
-    modelViewLoc =
-        gl.getUniformLocation(
-            program,
-            "uModelViewMatrix"
-        );
-
-    projectionLoc =
-        gl.getUniformLocation(
-            program,
-            "uProjectionMatrix"
-        );
-
-    lightDirectionLoc =
-        gl.getUniformLocation(
-            program,
-            "lightDirection"
-        );
+    // Uniform mapping
+    modelViewLoc = gl.getUniformLocation(program, "uModelViewMatrix");
+    projectionLoc = gl.getUniformLocation(program, "uProjectionMatrix");
+    lightDirectionLoc = gl.getUniformLocation(program, "lightDirection");
+    lightColorLoc = gl.getUniformLocation(program, "lightColor");
+    ambientLightLoc = gl.getUniformLocation(program, "ambientLight");
 
     render();
 };
 
 function render()
 {
-    gl.clear(
-        gl.COLOR_BUFFER_BIT |
-        gl.DEPTH_BUFFER_BIT
-    );
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     theta += 1.0;
 
-    let modelView =
-        mult(
-            translate(0.0, 0.0, -3.0),
-            rotateY(theta)
+    let modelView = mult(translate(0.0, 0.0, -3.0), rotateY(theta));
+    let projection = perspective(45.0, 1.0, 0.1, 100.0);
+
+    gl.uniformMatrix4fv(modelViewLoc, false, flatten(modelView));
+    gl.uniformMatrix4fv(projectionLoc, false, flatten(projection));
+
+    // Base lighting parameters
+    let lDir = vec3(1.0, 1.0, 1.0);
+    let lCol = vec3(1.0, 1.0, 1.0);
+    let amb = vec3(0.2, 0.2, 0.2);
+
+    // State machine for screenshot captures
+    if (currentMode === '1') {
+        lCol = vec3(1.0, 0.0, 0.0);
+    } 
+    else if (currentMode === '2') {
+        lCol = vec3(0.0, 1.0, 0.0);
+    } 
+    else if (currentMode === '3') {
+        lCol = vec3(0.0, 0.0, 1.0);
+    } 
+    else if (currentMode === '4') {
+        lDir = vec3(Math.cos(theta * 0.02), 1.0, Math.sin(theta * 0.02));
+    } 
+    else if (currentMode === '5') {
+        lDir = vec3(Math.cos(theta * 0.02), 1.0, Math.sin(theta * 0.02));
+        lCol = vec3(
+            Math.abs(Math.sin(theta * 0.02)),
+            Math.abs(Math.sin(theta * 0.03)),
+            Math.abs(Math.sin(theta * 0.04))
         );
+    }
 
-    let projection =
-        perspective(
-            45.0,
-            1.0,
-            0.1,
-            100.0
-        );
+    gl.uniform3fv(lightDirectionLoc, flatten(lDir));
+    gl.uniform3fv(lightColorLoc, flatten(lCol));
+    gl.uniform3fv(ambientLightLoc, flatten(amb));
 
-    gl.uniformMatrix4fv(
-        modelViewLoc,
-        false,
-        flatten(modelView)
-    );
-
-    gl.uniformMatrix4fv(
-        projectionLoc,
-        false,
-        flatten(projection)
-    );
-
-    gl.uniform3fv(
-        lightDirectionLoc,
-        flatten(vec3(1.0, 1.0, 1.0))
-    );
-
-    gl.drawArrays(
-        gl.TRIANGLES,
-        0,
-        36
-    );
+    gl.drawArrays(gl.TRIANGLES, 0, 36);
 
     requestAnimationFrame(render);
 }
@@ -227,55 +176,31 @@ function render()
 function createShader(gl, type, source)
 {
     const shader = gl.createShader(type);
-
     gl.shaderSource(shader, source);
-
     gl.compileShader(shader);
 
     if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
     {
-        console.error(
-            gl.getShaderInfoLog(shader)
-        );
-
+        console.error(gl.getShaderInfoLog(shader));
         return null;
     }
-
     return shader;
 }
 
 function createProgram(gl, vsSource, fsSource)
 {
-    const vertexShader =
-        createShader(
-            gl,
-            gl.VERTEX_SHADER,
-            vsSource
-        );
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
 
-    const fragmentShader =
-        createShader(
-            gl,
-            gl.FRAGMENT_SHADER,
-            fsSource
-        );
-
-    const program =
-        gl.createProgram();
-
+    const program = gl.createProgram();
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
-
     gl.linkProgram(program);
 
     if(!gl.getProgramParameter(program, gl.LINK_STATUS))
     {
-        console.error(
-            gl.getProgramInfoLog(program)
-        );
-
+        console.error(gl.getProgramInfoLog(program));
         return null;
     }
-
     return program;
 }
