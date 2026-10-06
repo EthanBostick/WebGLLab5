@@ -1,3 +1,12 @@
+DISCO TIME:
+<img width="506" height="467" alt="Screenshot 2026-10-06 at 10 02 56 AM" src="https://github.com/user-attachments/assets/cd48318b-8693-4df0-8897-b51163d758e1" />
+
+pointlight:
+<img width="562" height="467" alt="Screenshot 2026-10-06 at 10 05 33 AM" src="https://github.com/user-attachments/assets/9d1daa86-71da-4634-a577-03060be7c9f2" />
+
+
+
+
 Activity 1: 
 Ambient Light
 What is ambient light? 
